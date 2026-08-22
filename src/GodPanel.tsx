@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+// 1. Added useAction here
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { GRID, toCell, inBounds } from "./lib/grid";
 
@@ -13,8 +14,14 @@ export default function GodPanel() {
   const players = useQuery(api.game.players) ?? [];
   const drop = useMutation(api.game.drop);
   
+  // 2. Hooked up the AI logic
+  const think = useAction(api.god.think);
+  
   // This tracks which button is currently selected
   const [kind, setKind] = useState("boulder");
+  
+  // 3. Tracks whether the AI is currently attacking
+  const [ai, setAi] = useState(false);
 
   const occupied = new Set(
     players
@@ -44,6 +51,24 @@ export default function GodPanel() {
           </button>
         ))}
       </div>
+
+      {/* 4. The AI Toggle Button */}
+      <button 
+        onClick={() => { 
+          const next = !ai; 
+          setAi(next); 
+          if (next) think({ enabled: next }); 
+        }}
+        style={{
+          padding: "16px", width: "100%", cursor: "pointer",
+          background: ai ? "#9932CC" : "#222",
+          color: ai ? "#fff" : "#888",
+          fontWeight: "bold", border: `2px solid ${ai ? "#9932CC" : "#333"}`,
+          textTransform: "uppercase", letterSpacing: "1px"
+        }}
+      >
+        {ai ? "🧠 AI Overlord: Active" : "Awaken AI"}
+      </button>
 
       {/* The Existing Grid */}
       <div style={{
