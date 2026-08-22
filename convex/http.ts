@@ -7,24 +7,25 @@ const http = httpRouter();
 http.route({
   path: "/tick",
   method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    // 1. Unpack the payload from Roblox
-    const { positions, since } = await request.json();
+handler: httpAction(async (ctx, request) => {
+  const { positions, since } = await request.json();
 
-    // 2. Update the live player locations in the database
+  if (positions?.length) {
     await ctx.runMutation(api.game.writePositions, { positions });
+  }
 
-    // 3. Fetch the new traps (This is Claude's updated code)
-    const commands = await ctx.runQuery(api.game.commandsSince, { since });
-    
-    // 4. Calculate the perfect cursor without the T1/T2 gap
-    const cursor = commands.length 
-      ? Math.max(...commands.map((c) => c._creationTime)) 
-      : since;
+  // first tick after a server start — skip history
+  if (since === null || since === undefined) {
+    return Response.json({ commands: [], cursor: Date.now() });
+  }
 
-    // 5. Send it back to Roblox
-    return Response.json({ commands, cursor });
-  }),
+  const commands = await ctx.runQuery(api.game.commandsSince, { since });
+  const cursor = commands.length
+    ? Math.max(...commands.map((c) => c._creationTime))
+    : since;
+
+  return Response.json({ commands, cursor });
+}),
 });
 
 export default http;
