@@ -24,17 +24,27 @@ export const writePositions = mutation({
   })) },
   handler: async (ctx, { positions }) => {
     for (const p of positions) {
-      const existing = await ctx.db
+      const rows = await ctx.db
         .query("players")
         .withIndex("by_user", (q) => q.eq("userId", p.userId))
-        .unique();
-      if (existing) await ctx.db.patch(existing._id, p);
-      else await ctx.db.insert("players", p);
+        .collect();
+
+      if (rows.length === 0) {
+        await ctx.db.insert("players", { ...p, updatedAt: Date.now() });
+      } else {
+        await ctx.db.patch(rows[0]._id, { ...p, updatedAt: Date.now() });
+        for (let i = 1; i < rows.length; i++) {
+          await ctx.db.delete(rows[i]._id);
+        }
+      }
     }
   },
 });
-
 export const players = query({
   args: {},
-  handler: async (ctx) => await ctx.db.query("players").collect(),
+  handler: async (ctx) => {
+    const all = await ctx.db.query("players").collect();
+    const cutoff = Date.now() - 2000;
+    return all.filter((p) => p.updatedAt && p.updatedAt > cutoff);
+  },
 });
